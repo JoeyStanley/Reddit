@@ -1,6 +1,6 @@
 #usr/bin/perl
 
-# This program takes in a cleaned up file from combine.pl (or cleanup.pl).
+# This program takes in a cleaned up file from extract.pl.
 # It first goes through and saves all the words into the has %lex. 
 # %lex is then printed out as lexemes.txt, which lists how many times a particular word was used in a given time period (which must be specified). This will then be read in and processed using an R script in the future.
 # It then is printed out as counts, which simply lists each word and how many times it occurs in the entire corpus. It's listed alphabetically, which is handy to see any weird words (starting with punctuaion for example). But if opened in Excel and sorted by the frequency, it's easy to find what the most common words are.
@@ -10,120 +10,87 @@ use strict;
 use warnings;
 use feature 'say';
 
-my $file = "Reddit.txt";
-#open IN,  "<input/$file" or die "Cannot open file: $!";
-open IN, "/Volumes/Joey1TB/Research/Reddit/reddit_100_clean.txt" or die "Cannot open file: $!";
+my $file = "reddit.txt";
+open IN,  "<output/$file" or die "Cannot open file: $!";
+<IN>; # Read in just the first line (the header). Throw it out: we don't need it.
 
+# If you want to track language use over time, you can track either by day or by month.
+# Uncomment the one you want.
+my $focus = "day";
+#my $focus = "month";
 
-my %lex;
-my %wordsPerTime;
+# Set up some hashes and other variables.
+my %words;
 my $wordCount = 0;
+
 say "Reading in file...";
 while (<IN>) {
 	
-	# 06/30/2015	12:00:00	username	body
-	m#(.*?)\t(.*?)\t(.*?)\t(.*)\Z#;
-	my ($date, $time, $user, $body) = ($1,$2,$3,$4);
+	# Extract each column.
+	my ($date, $time, $sub, $author, $ups, $downs, $text) = split(/\t/);
 	
 	# First get the datatime info.
-	$date =~ m#(\d+)/(\d+)/(\d+)#;
-	my ($month, $day, $year) = ($1, $2, $3);
-	#$time =~ m#(\d+):(\d+):(\d+)#;
-	#my ($hour, $min, $sec) = ($1, $2, $3);
-	#my $timePeriod = $month."-".$year;
-	$month = "0$month" if length($month)==1;
-	my $timePeriod = $year.'/'.$month.'/'.$day;
-	
+	my ($month, $day, $year) = split(/\//, $date);
+
+	# Depending on the time frame you're interested in, it'll create a "timerPeriod" string.
+	my $timePeriod = "";
+	if ($focus eq "day") {
+		$timePeriod = $year.'/'.$month.'/'.$day;
+	} elsif ($focus eq "month") {
+		$timePeriod = $month."-".$year;
+	}
+
 	# Take the body, and send it down to &trackWords(), with the date.
-	# Defining what a word actually is is done here.
-	$body =~ s/(\w[\w'-]*)/ trackWords($1, "$timePeriod")/gei;
+	# This regex here defines what a word actually is (=anything including a letter, apostrophe, or hyphen)
+	$text =~ s/(\w[\w'-]*)/ trackWords($1, $timePeriod)/gei;
 }
 
 close IN;
 say "\t\tDone!";
+say "\t\tFound $wordCount words.";
 
-# Takes in a text and a time period, and keeps track how many times every word appears in a given time period (day, month, etc.).
+# Takes in a text and a time period, and keeps track how many times every word appears in it.
 sub trackWords {
 	my ($word, $timePeriod) = @_;
+	
+	# Converts it all to lowercase.
 	$word = lc($word);
 	
 	# Number of words in general.
 	$wordCount++;
 	
 	# Track the word in that time period.
-	$lex{$word}{$timePeriod}++;
-	$wordsPerTime{$timePeriod}++;
+	$words{$word}{$timePeriod}++;
+
+	# This is organized like this:
+	# %lex -> word1 -> date1 = 10
+	#				-> date2 = 11
+	#				-> date3 = 12 
+	#	   -> word2 -> date1 = 25
+	#				-> date2 = 26
+	#				-> date3 = 27
+	#	   -> word3 -> date1 = 38
+	#	 			-> date2 = 39
+	#				-> date3 = 40
 	
 	return $word;
 }
 
 
-# Write out
+# Now that we're done with the main loop, output all this information.
 say "Writing out data...";
+open WORDS, ">output/words.txt";
 
-say "\tTokens...";
-open OUT, ">output/tokens.txt";
-printTokens(\%lex);
-close OUT;
+# print them alphabetically
+for my $w (sort keys %words) { 
+	my $n = 0;
+	
+	# Go through each date and count how many times the words was there. 
+	for my $date (sort keys $words{$w}) {
+		$n += $words{$w}{$date};
+	}
+	say WORDS "$w\t$n";	
+}
 
-say "\tTimes...";
-open OUT, ">output/times.txt";
-printTime(\%wordsPerTime);
-close OUT;
-
-say "\tWords...";
-open OUT, ">output/words.txt";
-printWords(\%lex);
-close OUT;
-
+close WORDS;
 say "\t\tDone!";
-
-
-# Takes in a reference to a hash and prints it in a somewhat readable way.
-sub printTokens {
-	# Dereference
-	my $ref = shift;
-	my %tokens = %$ref;
-	
-	# Print each word and how many of each (by timePeriod).
-	for my $w (sort keys %tokens) {
-		#say $w;
-		say OUT "$w\t".$_."\t".$tokens{$w}{$_} for sort keys $tokens{$w};	
-	}
-}
-
-# Takes in a reference to a hash and prints how many 
-sub printTime {
-	# Dereference
-	my $ref = shift;
-	my %time = %$ref;
-	
-	# Print each word and how many of each (by timePeriod).
-	for my $period (sort keys %time) {
-		say OUT $period."\t".$time{$period};	
-	}
-}
-
-# Prints all 500,000 unique words
-sub printWords {
-	# Dereference
-	my $ref = shift;
-	my %words = %$ref;
-	
-	# Print each word and how many of each (by timePeriod).
-	for my $w (sort keys %words) {
-		my $n = 0;
-		for (sort keys $words{$w}) {
-			$n += $words{$w}{$_};
-		}
-		say OUT "$w\t$n";	
-	}
-}
-
-
-
-
-
-
-
-

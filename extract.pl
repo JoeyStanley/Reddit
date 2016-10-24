@@ -9,7 +9,7 @@
 
 # This program's output is fed into words.pl.
 
-# Code taken from http://stackoverflow.com/questions/5651659/read-all-files-in-a-directory-in-perl
+# Some code taken from http://stackoverflow.com/questions/5651659/read-all-files-in-a-directory-in-perl
 
 use strict;
 use warnings;
@@ -24,7 +24,7 @@ open OUT, ">$dir/output/reddit.txt";
 say OUT "date\ttime\tSubreddit\tAuthor\tUps\tDowns\tText";
 
 # By default, processes only every 100th line (to save space). 
-my $nth = 100;
+my $nth = 10;
 
 my $totalWordCount = 0;
 # Go through each file in the directory.
