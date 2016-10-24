@@ -1,12 +1,9 @@
 #!/usr/bin/perl
 
-##### NOTE! The month formatting is lost here! Try to fix it before running this again! ###
-
-# This script takes in a raw file from Reddit and cleans it up.
+# This script takes in a raw JSON file from Reddit and cleans it up.
 # It strips away everything except the datetime, user, and text.
-# It then saves this into another file.
+# It then saves this into another tab-deliminated spreadsheet file.
 
-# It does this to every nth line (default=1000) in order to reduce the sample size.
 # This program's output feeds into combine.pl and words.pl.
 
 use strict;
@@ -14,12 +11,17 @@ use warnings;
 use feature 'say';
 use utf8;
 
-my $file = "RC_2007-10";
-
-#my $totalLines = &countLines($file);
+# Change this to the name of the file you want to process. This should be in a directory called
+# input, which should be in the same directory as this script.
+my $file = "sample.txt";
 
 open IN,  "<input/$file" or die "Cannot open $file: $!";
 open OUT, ">input/$file"."_clean.txt";
+
+# Since the corpus is so stinkin' huge, I create a subsset. The program runs by default 
+# to every nth line (default=100) in order to reduce the sample size.
+my $nth = 100;
+
 
 my $lineNum = 0;
 my $wordCount = 0;
@@ -35,7 +37,7 @@ while (<IN>) {
 	
 	# Only process every thousanth line
 	$lineNum++;
-	next unless $lineNum % 1000 == 0;
+	next unless $lineNum % $nth == 0;
 	
 	
 	# Extract just the text
@@ -44,31 +46,32 @@ while (<IN>) {
 	next unless $body;
 	
 	
-	# Extract the DT stamp
-	# "created_utc":1438272000,
-	# "created_utc":1438272000    # no comma if at the end
-	# "created_utc":"1438272000"  # some files have quote around the numbers
-	#m/\{.*"created_utc":"(\d+?),.*\}/;
+	# Extract the DT stamp. Examples: 
+	# 	"created_utc":1438272000,
+	# 	"created_utc":1438272000    # no comma if it's at the end
+	# 	"created_utc":"1438272000"  # some files have quote around the numbers
 	m/\{.*"created_utc":"?(\d+)"?,?.*\}/;
 	my $dt = $1;
 	
 	
-	# Convert DT stamp into a readable format
+	# Convert DT stamp into a readable format 
+	# Time stamp is in Unix Time, so Perl's built in localtime() function converts it.
 	my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime($dt);
+	# (For some reason, months are stored from 0–11, and years need 1900 before them.)
+	$mon = $mon+1;
+	$year = $year + 1900;
 	
+	# Create other date time variables. 
+	my $date = $mon."/".$mday."/".$year;
+	my $time = $hour.":".$min.":".$sec;
+	my $stamp = $date." ".$time;
+
+	# Pad numbers with zeros if they're not two digits.
 	$sec  = "0$sec"  if length($sec)==1;
 	$min  = "0$min"  if length($min)==1;
 	$hour = "0$hour" if length($hour)==1;
 	$mday = "0$mday" if length($mday)==1;
 	$mon  = "0$mon"  if length($mon)==1;
-	
-	# The month formatting is lost here because of the ($mon+1) in the my $date statement.
-	# Next time, try putting $mon+1 before these six formatting lines.
-	
-	my $date = ($mon+1)."/".$mday."/".($year+1900); # The months are off for some reason
-	my $time = $hour.":".$min.":".$sec;
-	my $stamp = $date." ".$time;
-
 
 	# Translate coded text
 	$body = &specialCharacters($body);
@@ -77,7 +80,7 @@ while (<IN>) {
 	say OUT "$date\t$time\t$author\t$body";
 	#say OUT $body;
 	
-	
+	# Count the number of words.
 	$body =~ s/\w+/$wordCount++/ge;
 }
 say "\t\t\tDone.";
@@ -87,12 +90,7 @@ say "Found $wordCount words";
 close IN;
 close OUT;
 
-
-sub countLines {
-
-}
-
-
+# This subroutine strips away unwanted characters and coding.
 sub specialCharacters {
 	my $body = shift;
 	
@@ -116,7 +114,6 @@ sub specialCharacters {
 	# I can't get unicode to work. I'll have to remove them for now.
 	$body =~ s{\\u[0-9a-g]+}{}g;
 	#$body =~ s{\\u([0-9a-g]+)}{"\x{$1}"}gei;
-	
 	
 	# All escape characters
 	$body =~ s{\\\"}{"}g;
