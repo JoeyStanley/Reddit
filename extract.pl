@@ -1,9 +1,13 @@
-#usr/bin/perl
+#!/usr/bin/perl
 
-# This program takes in all files in a directory and combines them into one big file.
-# The files should be already processed by cleanup.pl
+# Step 1 of processing Reddit files.
+
+# This file reads in all Reddit files and turns them into a tab-delimited .txt file. 
+# By default it only processes every 100th line because the corpus gets enormous.
+# Only extracts the date, time, subreddit, author, upvotes, downvotes, and text.
+# Creates a .txt file /output/reddit.txt.
+
 # This program's output is fed into words.pl.
-# NOTE: The input and output files should not be in the same directory or else it will read in the output and loop forever until you run out of hard drive space.
 
 # Code taken from http://stackoverflow.com/questions/5651659/read-all-files-in-a-directory-in-perl
 
@@ -11,23 +15,31 @@ use strict;
 use warnings;
 use feature 'say';
 
-my $dir = "/Volumes/Joey1TB/Research/Reddit/100th";
+# Default = this current directory. 
+my $dir = "./";
 die $! unless -e $dir;
 
 # Output file
-open OUT, ">/Volumes/Joey1TB/Research/Reddit/reddit_100_clean.txt";
+open OUT, ">$dir/output/reddit.txt";
+say OUT "date\ttime\tSubreddit\tAuthor\tUps\tDowns\tText";
+
+# By default, processes only every 100th line (to save space). 
+my $nth = 100;
 
 my $totalWordCount = 0;
 # Go through each file in the directory.
-foreach my $fp (glob("$dir/*.txt")) {
+foreach my $fp (glob("$dir/JSON/*.txt")) {
   	say $fp;
 	open my $fh, "<", $fp or die "can't read open '$fp': $_";
-   
+  
+	# Now go through each file. 
 	my $wordCount = 0;
 	my $lineNum = 0;
     while (<$fh>) {
+
       	# Count how many lines there are.
       	$lineNum++; 
+		next unless $lineNum % $nth == 0;
 
 		#----------------------------#
 		#  Get upvotes and downvotes #
@@ -59,7 +71,6 @@ foreach my $fp (glob("$dir/*.txt")) {
 		# "created_utc":1438272000,
 		# "created_utc":1438272000    # no comma if at the end
 		# "created_utc":"1438272000"  # some files have quote around the numbers
-		#m/\{.*"created_utc":"(\d+?),.*\}/;
 		m/\{.*"created_utc":"?(\d+)"?,?.*\}/;
 		my $dt = $1;
 
@@ -72,9 +83,6 @@ foreach my $fp (glob("$dir/*.txt")) {
 		$hour = "0$hour" if length($hour)==1;
 		$mday = "0$mday" if length($mday)==1;
 		$mon  = "0$mon"  if length($mon)==1;
-
-		# The month formatting is lost here because of the ($mon+1) in the my $date statement.
-		# Next time, try putting $mon+1 before these six formatting lines.
 
 		my $date = $mon."/".$mday."/".($year+1900); 
 		my $time = $hour.":".$min.":".$sec;
@@ -96,7 +104,7 @@ foreach my $fp (glob("$dir/*.txt")) {
 		#----------------------------#
 		#           Print            #
 		#----------------------------#
-		say OUT "$date\t$time\tSub: $sub\tAuthor: $author\tUps: $ups\tDowns: $downs\t$body";
+		say OUT "$date\t$time\t$sub\t$author\t$ups\t$downs\t$body";
 
 		# Count the words
 		$body =~ s/\w+/$wordCount++; $&/ge;
@@ -107,12 +115,12 @@ foreach my $fp (glob("$dir/*.txt")) {
 	$totalWordCount += $wordCount;
 	say "\tUp to ", (addCommas($totalWordCount))." total words at this point.";
 
-  close $fh or die "can't read close '$fp': $_";
+  	close $fh or die "can't read close '$fp': $_";
 }
 
 close OUT;
 
-
+# Strips away weird characters.
 sub specialCharacters {
 	my $body = shift;
 	
@@ -127,16 +135,12 @@ sub specialCharacters {
 	$body =~ s{\&gt;}{>}g;
 	$body =~ s{\&amp;}{\&}g;
 	$body =~ s{\&nbsp;}{ }g;
-	#$body =~ s{\&emdash;}{—}g;
 	
 	# For all other cases, just turn them into white spaces.
 	$body =~ s{\&[0-9a-z]+?;}{ };
-	#$body =~ s{\&[0-9a-z]+?;}{say $&; " "}ge;
 	
 	# I can't get unicode to work. I'll have to remove them for now.
-	$body =~ s{\\u[0-9a-g]+}{}g;
-	#$body =~ s{\\u([0-9a-g]+)}{"\x{$1}"}gei;
-	
+	$body =~ s{\\u[0-9a-g]+}{}g;	
 	
 	# All escape characters
 	$body =~ s{\\\"}{"}g;
@@ -146,6 +150,8 @@ sub specialCharacters {
 	return $body;
 }
 
+# Add commas to numbers larger than 1000.
+# From the 'Perl Cookbook' (pages 64-65).
 sub addCommas {
     my $text = reverse $_[0];
     $text =~ s/(\d\d\d)(?=\d)(?!\d*\.)/$1,/g;

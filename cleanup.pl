@@ -1,5 +1,7 @@
 #!/usr/bin/perl
 
+# Step 1 of processing Reddit files.
+
 # This script takes in a raw JSON file from Reddit and cleans it up.
 # It strips away everything except the datetime, user, and text.
 # It then saves this into another tab-deliminated spreadsheet file.
@@ -14,9 +16,10 @@ use utf8;
 # Change this to the name of the file you want to process. This should be in a directory called
 # input, which should be in the same directory as this script.
 my $file = "sample.txt";
+my ($name, $ext) = split(/\./, $file);
 
-open IN,  "<input/$file" or die "Cannot open $file: $!";
-open OUT, ">input/$file"."_clean.txt";
+open IN,  "<JSON/$file" or die "Cannot open $file: $!";
+open OUT, ">sample/$name"."_clean.txt";
 
 # Since the corpus is so stinkin' huge, I create a subsset. The program runs by default 
 # to every nth line (default=100) in order to reduce the sample size.
