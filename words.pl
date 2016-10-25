@@ -1,10 +1,11 @@
 #usr/bin/perl
 
 # This program takes in a cleaned up file from extract.pl.
-# It first goes through and saves all the words into the has %lex. 
-# %lex is then printed out as lexemes.txt, which lists how many times a particular word was used in a given time period (which must be specified). This will then be read in and processed using an R script in the future.
-# It then is printed out as counts, which simply lists each word and how many times it occurs in the entire corpus. It's listed alphabetically, which is handy to see any weird words (starting with punctuaion for example). But if opened in Excel and sorted by the frequency, it's easy to find what the most common words are.
-# This prints each token on its own line. To combine them into one type per line, run the R script to_wide.R.
+# It first goes through and saves all the words into the hash %words. 
+# The hash is then printed out as words.txt, which lists how many times a particular word was used in a given time period (which must be specified), each token on its own line. 
+
+# Written by Joey Stanley
+# August 7, 2015
 
 use strict;
 use warnings;
@@ -91,6 +92,7 @@ for my $w (sort keys %words) {
 	}
 	say WORDS "$w\t$n";	
 }
+
 
 close WORDS;
 say "\t\tDone!";

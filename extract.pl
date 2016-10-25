@@ -9,6 +9,9 @@
 
 # This program's output is fed into words.pl.
 
+# Written by Joey Stanley
+# August 15, 2015
+
 # Some code taken from http://stackoverflow.com/questions/5651659/read-all-files-in-a-directory-in-perl
 
 use strict;
